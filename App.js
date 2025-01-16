@@ -115,6 +115,7 @@ const ShoppingListApp = () => {
       <Button
         title={editMode ? 'Update Item' : 'Add Item'}
         onPress={editMode ? handleEditItem : handleAddItem}
+        style={styles.buttons}
       />
       <FlatList
         data={items}
@@ -135,12 +136,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'black',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
+    color:"white"
   },
   input: {
     borderWidth: 1,
@@ -148,9 +150,10 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     padding: 10,
     marginBottom: 10,
+    backgroundColor:'grey'
   },
   itemContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: 'cyan',
     padding: 10,
     borderRadius: 5,
     marginBottom: 10,
@@ -159,7 +162,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 10,
+    
   },
+  buttons: {
+    backgroundColor:'green'
+  }
 });
 
 export default App;
