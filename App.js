@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { configureStore, createSlice } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -44,7 +44,10 @@ const ShoppingListApp = () => {
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [filterCategory, setFilterCategory] = useState('All');
   const [filterUrgency, setFilterUrgency] = useState('All');
+
+  const categories = ['Groceries', 'Household', 'Personal Care', 'Electronics'];
 
   useEffect(() => {
     const loadItems = async () => {
@@ -83,9 +86,11 @@ const ShoppingListApp = () => {
     }
   };
 
-  const filteredItems = filterUrgency === 'All'
-    ? items
-    : items.filter((item) => item.urgency === filterUrgency);
+  const filteredItems = items.filter((item) => {
+    const matchesCategory = filterCategory === 'All' || item.category === filterCategory;
+    const matchesUrgency = filterUrgency === 'All' || item.urgency === filterUrgency;
+    return matchesCategory && matchesUrgency;
+  });
 
   const renderItem = ({ item }) => (
     <View style={styles.itemContainer}>
@@ -108,13 +113,25 @@ const ShoppingListApp = () => {
     <View style={styles.container}>
       <Text style={styles.title}>Shopping List</Text>
 
+      {/* Category Filter */}
+      <Picker
+        selectedValue={filterCategory}
+        onValueChange={(value) => setFilterCategory(value)}
+        style={styles.picker}
+      >
+        <Picker.Item label="All Categories" value="All" />
+        {categories.map((cat) => (
+          <Picker.Item key={cat} label={cat} value={cat} />
+        ))}
+      </Picker>
+
       {/* Urgency Filter */}
       <Picker
         selectedValue={filterUrgency}
         onValueChange={(value) => setFilterUrgency(value)}
         style={styles.picker}
       >
-        <Picker.Item label="All" value="All" />
+        <Picker.Item label="All Urgencies" value="All" />
         <Picker.Item label="Low" value="Low" />
         <Picker.Item label="Medium" value="Medium" />
         <Picker.Item label="High" value="High" />
@@ -151,17 +168,24 @@ const ShoppingListApp = () => {
               value={quantity}
               onChangeText={setQuantity}
             />
-            <TextInput
-              style={styles.input}
-              placeholder="Category"
-              value={category}
-              onChangeText={setCategory}
-            />
+            {/* Category Picker */}
+            <Picker
+              selectedValue={category}
+              onValueChange={(value) => setCategory(value)}
+              style={styles.picker}
+            >
+              <Picker.Item label="Select Category" value="" />
+              {categories.map((cat) => (
+                <Picker.Item key={cat} label={cat} value={cat} />
+              ))}
+            </Picker>
+            {/* Urgency Picker */}
             <Picker
               selectedValue={urgency}
               onValueChange={(value) => setUrgency(value)}
               style={styles.picker}
             >
+              <Picker.Item label="Select Urgency" value="" />
               <Picker.Item label="Low" value="Low" />
               <Picker.Item label="Medium" value="Medium" />
               <Picker.Item label="High" value="High" />
@@ -216,6 +240,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 5,
     marginBottom: 10,
+    marginTop:19,
   },
   buttonsContainer: {
     flexDirection: 'row',
