@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, Modal, Alert } from 'react-native';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { configureStore, createSlice } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Picker } from '@react-native-picker/picker';
+
 
 const shoppingSlice = createSlice({
   name: 'shopping',
@@ -44,10 +44,6 @@ const ShoppingListApp = () => {
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [filterCategory, setFilterCategory] = useState('All');
-  const [filterUrgency, setFilterUrgency] = useState('All');
-
-  const categories = ['Groceries', 'Household', 'Personal Care', 'Electronics'];
 
   useEffect(() => {
     const loadItems = async () => {
@@ -83,14 +79,10 @@ const ShoppingListApp = () => {
       setCategory('');
       setUrgency('');
       setShowForm(false);
+    } else {
+      Alert.alert("All fields are required!");
     }
   };
-
-  const filteredItems = items.filter((item) => {
-    const matchesCategory = filterCategory === 'All' || item.category === filterCategory;
-    const matchesUrgency = filterUrgency === 'All' || item.urgency === filterUrgency;
-    return matchesCategory && matchesUrgency;
-  });
 
   const renderItem = ({ item }) => (
     <View style={styles.itemContainer}>
@@ -99,7 +91,7 @@ const ShoppingListApp = () => {
       <Text>Category: {item.category}</Text>
       <Text>Urgency: {item.urgency}</Text>
       <View style={styles.buttonsContainer}>
-        <TouchableOpacity style={styles.button} onPress={() => setShowForm(true)}>
+        <TouchableOpacity style={styles.button} onPress={() => handleEditItem(item)}>
           <Text style={styles.buttonText}>Edit</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.button} onPress={() => dispatch(deleteItem(item.id))}>
@@ -109,33 +101,33 @@ const ShoppingListApp = () => {
     </View>
   );
 
+  const handleEditItem = (item) => {
+    setEditMode(true);
+    setEditId(item.id);
+    setName(item.name);
+    setQuantity(item.quantity);
+    setCategory(item.category);
+    setUrgency(item.urgency);
+    setShowForm(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (name.trim() && quantity.trim() && category.trim() && urgency.trim()) {
+      const editedItem = { id: editId, name, quantity, category, urgency };
+      dispatch(editItem(editedItem));
+      setName('');
+      setQuantity('');
+      setCategory('');
+      setUrgency('');
+      setEditMode(false);
+      setEditId(null);
+      setShowForm(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Shopping List</Text>
-
-      {/* Category Filter */}
-      <Picker
-        selectedValue={filterCategory}
-        onValueChange={(value) => setFilterCategory(value)}
-        style={styles.picker}
-      >
-        <Picker.Item label="All Categories" value="All" />
-        {categories.map((cat) => (
-          <Picker.Item key={cat} label={cat} value={cat} />
-        ))}
-      </Picker>
-
-      {/* Urgency Filter */}
-      <Picker
-        selectedValue={filterUrgency}
-        onValueChange={(value) => setFilterUrgency(value)}
-        style={styles.picker}
-      >
-        <Picker.Item label="All Urgencies" value="All" />
-        <Picker.Item label="Low" value="Low" />
-        <Picker.Item label="Medium" value="Medium" />
-        <Picker.Item label="High" value="High" />
-      </Picker>
 
       {/* Add Item Button */}
       <TouchableOpacity style={styles.button} onPress={() => setShowForm(true)}>
@@ -143,7 +135,7 @@ const ShoppingListApp = () => {
       </TouchableOpacity>
 
       <FlatList
-        data={filteredItems}
+        data={items}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
       />
@@ -168,32 +160,29 @@ const ShoppingListApp = () => {
               value={quantity}
               onChangeText={setQuantity}
             />
-            {/* Category Picker */}
-            <Picker
-              selectedValue={category}
-              onValueChange={(value) => setCategory(value)}
-              style={styles.picker}
-            >
-              <Picker.Item label="Select Category" value="" />
-              {categories.map((cat) => (
-                <Picker.Item key={cat} label={cat} value={cat} />
-              ))}
-            </Picker>
-            {/* Urgency Picker */}
-            <Picker
-              selectedValue={urgency}
-              onValueChange={(value) => setUrgency(value)}
-              style={styles.picker}
-            >
-              <Picker.Item label="Select Urgency" value="" />
-              <Picker.Item label="Low" value="Low" />
-              <Picker.Item label="Medium" value="Medium" />
-              <Picker.Item label="High" value="High" />
-            </Picker>
+            <TextInput
+              style={styles.input}
+              placeholder="Category"
+              value={category}
+              onChangeText={setCategory}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Urgency"
+              value={urgency}
+              onChangeText={setUrgency}
+            />
+
             <View style={styles.modalButtonsContainer}>
-              <TouchableOpacity style={styles.button} onPress={handleAddItem}>
-                <Text style={styles.buttonText}>Save</Text>
-              </TouchableOpacity>
+              {editMode ? (
+                <TouchableOpacity style={styles.button} onPress={handleSaveEdit}>
+                  <Text style={styles.buttonText}>Save Edit</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.button} onPress={handleAddItem}>
+                  <Text style={styles.buttonText}>Save</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={styles.button} onPress={() => setShowForm(false)}>
                 <Text style={styles.buttonText}>Cancel</Text>
               </TouchableOpacity>
@@ -215,58 +204,55 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: 'black',
+    backgroundColor:'grey',
+    marginTop:1,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+    textAlign: 'center',
     marginBottom: 20,
-    color: 'white',
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
+  button: {
+    backgroundColor: 'red',
     padding: 10,
-    marginBottom: 10,
-    backgroundColor: 'white',
+    margin: 5,
+    borderRadius: 5,
   },
-  picker: {
-    backgroundColor: 'white',
-    marginBottom: 10,
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
   },
   itemContainer: {
-    backgroundColor: 'grey',
-    padding: 10,
+    padding: 15,
+    marginVertical: 10,
+    backgroundColor: '#abdbe3',
     borderRadius: 5,
-    marginBottom: 10,
-    marginTop:19,
   },
   buttonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 10,
   },
-  button: {
-    backgroundColor: 'red',
-    padding: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: 'white',
-  },
   modalBackground: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContainer: {
-    width: '90%',
     backgroundColor: 'white',
     padding: 20,
     borderRadius: 10,
+    width: '80%',
+  },
+  input: {
+    height: 40,
+    borderColor: '#ddd',
+    borderWidth: 1,
+    marginBottom: 15,
+    paddingLeft: 8,
+    borderRadius: 5,
   },
   modalButtonsContainer: {
     flexDirection: 'row',
