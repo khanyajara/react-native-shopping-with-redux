@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, Modal, Alert } from 'react-native';
+import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, Modal, Alert, ScrollView, Share } from 'react-native';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { configureStore, createSlice } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-
 const shoppingSlice = createSlice({
   name: 'shopping',
-  initialState: { items: [] },
+  initialState: { 
+    items: [], 
+    categories: ['Fruits', 'Vegetables', 'Dairy', 'Meat', 'Snacks', 'Pantry'], 
+    filteredCategory: '', 
+  },
   reducers: {
     addItem: (state, action) => {
       state.items.push(action.payload);
@@ -28,15 +31,20 @@ const shoppingSlice = createSlice({
     setItems: (state, action) => {
       state.items = action.payload;
     },
+    setFilteredCategory: (state, action) => {
+      state.filteredCategory = action.payload;
+    },
   },
 });
 
-const { addItem, editItem, deleteItem, setItems } = shoppingSlice.actions;
+const { addItem, editItem, deleteItem, setItems, setFilteredCategory } = shoppingSlice.actions;
 const store = configureStore({ reducer: { shopping: shoppingSlice.reducer } });
 
 const ShoppingListApp = () => {
   const dispatch = useDispatch();
   const items = useSelector((state) => state.shopping.items);
+  const categories = useSelector((state) => state.shopping.categories);
+  const filteredCategory = useSelector((state) => state.shopping.filteredCategory);
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [category, setCategory] = useState('');
@@ -84,23 +92,6 @@ const ShoppingListApp = () => {
     }
   };
 
-  const renderItem = ({ item }) => (
-    <View style={styles.itemContainer}>
-      <Text>{item.name}</Text>
-      <Text>Quantity: {item.quantity}</Text>
-      <Text>Category: {item.category}</Text>
-      <Text>Urgency: {item.urgency}</Text>
-      <View style={styles.buttonsContainer}>
-        <TouchableOpacity style={styles.button} onPress={() => handleEditItem(item)}>
-          <Text style={styles.buttonText}>Edit</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={() => dispatch(deleteItem(item.id))}>
-          <Text style={styles.buttonText}>Delete</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
   const handleEditItem = (item) => {
     setEditMode(true);
     setEditId(item.id);
@@ -125,27 +116,74 @@ const ShoppingListApp = () => {
     }
   };
 
+  const filteredItems = filteredCategory 
+    ? items.filter(item => item.category === filteredCategory) 
+    : items;
+
+    const ShareList = async () => {
+      try {
+        const listContent = items.map((item) => 
+          `Item: ${item.name}, Quantity: ${item.quantity}, Category: ${item.category}, Urgency: ${item.urgency}`
+        ).join('\n');
+        
+        await Share.share({
+          message: `Shopping List:\n${listContent}`,
+        });
+      } catch (error) {
+        console.error('Error sharing list:', error);
+      }
+    };
+  
+
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Shopping List</Text>
 
-      {/* Add Item Button */}
-      <TouchableOpacity style={styles.button} onPress={() => setShowForm(true)}>
-        <Text style={styles.buttonText}>Add Item</Text>
-      </TouchableOpacity>
+      {/* Category Filter */}
+      <ScrollView horizontal style={styles.categoryScrollView}>
+        {categories.map((categoryItem) => (
+          <TouchableOpacity
+            key={categoryItem}
+            style={[styles.categoryButton, filteredCategory === categoryItem && styles.selectedCategory]}
+            onPress={() => dispatch(setFilteredCategory(categoryItem))}
+          >
+            <Text style={styles.categoryText}>{categoryItem}</Text>
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity
+          style={[styles.categoryButton, !filteredCategory && styles.selectedCategory]}
+          onPress={() => dispatch(setFilteredCategory(''))}
+        >
+          <Text style={styles.categoryText}>All</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      
 
       <FlatList
-        data={items}
+        data={filteredItems}
         keyExtractor={(item) => item.id}
-        renderItem={renderItem}
+        renderItem={({ item }) => (
+          <View style={styles.itemContainer}>
+            <Text>{item.name}</Text>
+            <Text>Quantity: {item.quantity}</Text>
+            <Text>Category: {item.category}</Text>
+            <Text>Urgency: {item.urgency}</Text>
+            <View style={styles.buttonsContainer}>
+              <TouchableOpacity style={styles.button} onPress={() => handleEditItem(item)}>
+                <Text style={styles.buttonText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.button} onPress={() => dispatch(deleteItem(item.id))}>
+                <Text style={styles.buttonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       />
 
       {/* Input Form Modal */}
-      <Modal
-        visible={showForm}
-        transparent
-        animationType="fade"
-      >
+      <Modal visible={showForm} transparent animationType="fade">
         <View style={styles.modalBackground}>
           <View style={styles.modalContainer}>
             <TextInput
@@ -160,12 +198,20 @@ const ShoppingListApp = () => {
               value={quantity}
               onChangeText={setQuantity}
             />
-            <TextInput
-              style={styles.input}
-              placeholder="Category"
-              value={category}
-              onChangeText={setCategory}
-            />
+            
+            {/* Category Dropdown */}
+            <ScrollView horizontal style={styles.categoryScrollView}>
+              {categories.map((categoryItem) => (
+                <TouchableOpacity
+                  key={categoryItem}
+                  style={[styles.categoryButton, category === categoryItem && styles.selectedCategory]}
+                  onPress={() => setCategory(categoryItem)}
+                >
+                  <Text style={styles.categoryText}>{categoryItem}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
             <TextInput
               style={styles.input}
               placeholder="Urgency"
@@ -190,6 +236,16 @@ const ShoppingListApp = () => {
           </View>
         </View>
       </Modal>
+     
+      {/* Add Item Button and Share List Button */}
+      <View style={styles.addItemButtonContainer}>
+        <TouchableOpacity style={styles.buttons} onPress={() => setShowForm(true)}>
+          <Text style={styles.buttonText}>Add Item</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.buttons} onPress={ShareList}>
+          <Text style={styles.buttonText}>Share List</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -204,20 +260,45 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor:'grey',
-    marginTop:1,
+    backgroundColor: 'black',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 20,
+    color: 'white',
+  },
+  categoryScrollView: {
+    marginBottom: 20,
+  },
+  categoryButton: {
+    backgroundColor: '#009688',
+    padding: 10,
+    marginRight: 10,
+    borderRadius: 5,
+    height:50
+  },
+  selectedCategory: {
+    backgroundColor: '#004d40',
+  },
+  categoryText: {
+    color: 'white',
+    textAlign: 'center',
   },
   button: {
-    backgroundColor: 'red',
+    backgroundColor: '#009688',
     padding: 10,
     margin: 5,
     borderRadius: 5,
+  },
+  buttons: {
+    backgroundColor: '#009688',
+    padding: 10,
+    margin: 5,
+    borderRadius: 5,
+    
+    
   },
   buttonText: {
     color: 'white',
@@ -226,7 +307,7 @@ const styles = StyleSheet.create({
   itemContainer: {
     padding: 15,
     marginVertical: 10,
-    backgroundColor: '#abdbe3',
+    backgroundColor: '#F0F0F0',
     borderRadius: 5,
   },
   buttonsContainer: {
@@ -257,6 +338,12 @@ const styles = StyleSheet.create({
   modalButtonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  addItemButtonContainer: {
+    marginTop: 'auto',
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    paddingBottom: 20,
   },
 });
 
