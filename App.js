@@ -1,15 +1,27 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, Modal, Alert, ScrollView, Share } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  Modal,
+  Alert,
+  ScrollView,
+  Share,
+} from 'react-native';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { configureStore, createSlice } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Accordion from 'react-native-collapsible/Accordion';
 
 const shoppingSlice = createSlice({
   name: 'shopping',
-  initialState: { 
-    items: [], 
-    categories: ['Fruits', 'Vegetables', 'Dairy', 'Meat', 'Snacks', 'Pantry'], 
-    filteredCategory: '', 
+  initialState: {
+    items: [],
+    categories: ['Fruits', 'Vegetables', 'Dairy', 'Meat', 'Snacks', 'Pantry'],
+    filteredCategory: '',
   },
   reducers: {
     addItem: (state, action) => {
@@ -45,6 +57,7 @@ const ShoppingListApp = () => {
   const items = useSelector((state) => state.shopping.items);
   const categories = useSelector((state) => state.shopping.categories);
   const filteredCategory = useSelector((state) => state.shopping.filteredCategory);
+
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [category, setCategory] = useState('');
@@ -52,6 +65,7 @@ const ShoppingListApp = () => {
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [activeSections, setActiveSections] = useState([]);
 
   useEffect(() => {
     const loadItems = async () => {
@@ -88,7 +102,7 @@ const ShoppingListApp = () => {
       setUrgency('');
       setShowForm(false);
     } else {
-      Alert.alert("All fields are required!");
+      Alert.alert('All fields are required!');
     }
   };
 
@@ -116,36 +130,67 @@ const ShoppingListApp = () => {
     }
   };
 
-  const filteredItems = filteredCategory 
-    ? items.filter(item => item.category === filteredCategory) 
+  const ShareList = async () => {
+    try {
+      const listContent = items
+        .map(
+          (item) =>
+            `Item: ${item.name}, Quantity: ${item.quantity}, Category: ${item.category}, Urgency: ${item.urgency}`
+        )
+        .join('\n');
+
+      await Share.share({
+        message: `Shopping List:\n${listContent}`,
+      });
+    } catch (error) {
+      console.error('Error sharing list:', error);
+    }
+  };
+
+  const filteredItems = filteredCategory
+    ? items.filter((item) => item.category === filteredCategory)
     : items;
 
-    const ShareList = async () => {
-      try {
-        const listContent = items.map((item) => 
-          `Item: ${item.name}, Quantity: ${item.quantity}, Category: ${item.category}, Urgency: ${item.urgency}`
-        ).join('\n');
-        
-        await Share.share({
-          message: `Shopping List:\n${listContent}`,
-        });
-      } catch (error) {
-        console.error('Error sharing list:', error);
-      }
-    };
-  
+  const sections = filteredItems.map((item) => ({
+    id: item.id,
+    title: item.name,
+    content: `Quantity: ${item.quantity}\nCategory: ${item.category}\nUrgency: ${item.urgency}`,
+  }));
 
+  const renderHeader = (section, _, isActive) => (
+    <View style={[styles.itemContainer, isActive && styles.activeHeader]}>
+      <ScrollView>
+        <Text style={styles.itemHeaderText}>{section.title}</Text>
+      </ScrollView>
+    </View>
+  );
+
+  const renderContent = (section) => (
+    <View style={styles.itemContentContainer}>
+      <Text style={styles.itemContentText}>{section.content}</Text>
+      <View style={styles.buttonsContainer}>
+        <TouchableOpacity style={styles.button} onPress={() => handleEditItem(section)}>
+          <Text style={styles.buttonText}>Edit</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={() => dispatch(deleteItem(section.id))}>
+          <Text style={styles.buttonText}>Delete</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Shopping List</Text>
 
-      {/* Category Filter */}
       <ScrollView horizontal style={styles.categoryScrollView}>
         {categories.map((categoryItem) => (
           <TouchableOpacity
             key={categoryItem}
-            style={[styles.categoryButton, filteredCategory === categoryItem && styles.selectedCategory]}
+            style={[
+              styles.categoryButton,
+              filteredCategory === categoryItem && styles.selectedCategory,
+            ]}
             onPress={() => dispatch(setFilteredCategory(categoryItem))}
           >
             <Text style={styles.categoryText}>{categoryItem}</Text>
@@ -159,30 +204,15 @@ const ShoppingListApp = () => {
         </TouchableOpacity>
       </ScrollView>
 
-      
-
-      <FlatList
-        data={filteredItems}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.itemContainer}>
-            <Text>{item.name}</Text>
-            <Text>Quantity: {item.quantity}</Text>
-            <Text>Category: {item.category}</Text>
-            <Text>Urgency: {item.urgency}</Text>
-            <View style={styles.buttonsContainer}>
-              <TouchableOpacity style={styles.button} onPress={() => handleEditItem(item)}>
-                <Text style={styles.buttonText}>Edit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.button} onPress={() => dispatch(deleteItem(item.id))}>
-                <Text style={styles.buttonText}>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+      <Accordion
+        sections={sections}
+        activeSections={activeSections}
+        renderHeader={renderHeader}
+        renderContent={renderContent}
+        onChange={(newActiveSections) => setActiveSections(newActiveSections)}
+        underlayColor="#f0f0f0"
       />
 
-      {/* Input Form Modal */}
       <Modal visible={showForm} transparent animationType="fade">
         <View style={styles.modalBackground}>
           <View style={styles.modalContainer}>
@@ -198,27 +228,26 @@ const ShoppingListApp = () => {
               value={quantity}
               onChangeText={setQuantity}
             />
-            
-            {/* Category Dropdown */}
             <ScrollView horizontal style={styles.categoryScrollView}>
               {categories.map((categoryItem) => (
                 <TouchableOpacity
                   key={categoryItem}
-                  style={[styles.categoryButton, category === categoryItem && styles.selectedCategory]}
+                  style={[
+                    styles.categoryButton,
+                    category === categoryItem && styles.selectedCategory,
+                  ]}
                   onPress={() => setCategory(categoryItem)}
                 >
                   <Text style={styles.categoryText}>{categoryItem}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
-
             <TextInput
               style={styles.input}
               placeholder="Urgency"
               value={urgency}
               onChangeText={setUrgency}
             />
-
             <View style={styles.modalButtonsContainer}>
               {editMode ? (
                 <TouchableOpacity style={styles.button} onPress={handleSaveEdit}>
@@ -236,8 +265,7 @@ const ShoppingListApp = () => {
           </View>
         </View>
       </Modal>
-     
-      {/* Add Item Button and Share List Button */}
+
       <View style={styles.addItemButtonContainer}>
         <TouchableOpacity style={styles.buttons} onPress={() => setShowForm(true)}>
           <Text style={styles.buttonText}>Add Item</Text>
@@ -277,7 +305,7 @@ const styles = StyleSheet.create({
     padding: 10,
     marginRight: 10,
     borderRadius: 5,
-    height:50
+    height: 50,
   },
   selectedCategory: {
     backgroundColor: '#004d40',
@@ -297,8 +325,6 @@ const styles = StyleSheet.create({
     padding: 10,
     margin: 5,
     borderRadius: 5,
-    
-    
   },
   buttonText: {
     color: 'white',
@@ -310,10 +336,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F0',
     borderRadius: 5,
   },
-  buttonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
+  activeHeader: {
+    backgroundColor: '#afbed2',
+  },
+  itemHeaderText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  itemContentContainer: {
+    padding: 10,
+    backgroundColor: '#fafafa',
+    borderBottomLeftRadius: 5,
+    borderBottomRightRadius: 5,
+  },
+  itemContentText: {
+    fontSize: 16,
+    marginBottom: 10,
+    color: '#666',
   },
   modalBackground: {
     flex: 1,
